@@ -1,5 +1,5 @@
 class User < ActiveRecord::Base
-  attr_accessible :name
+  attr_accessible :name, :high_score
   #follow an user
   def follow! user
     $redis.multi do
@@ -57,5 +57,27 @@ class User < ActiveRecord::Base
   #helper method to generate redis key
   def redis_key str
     "user:#{self.id}:#{str}"
+  end
+
+  #log high score
+  def scored score
+    if score > self.high_score
+      $redis.zadd "highscores", score, self.id
+    end
+  end
+
+  #table rank
+  def rank
+    $redis.zrevrank("highscores", self.id) + 1
+  end
+
+  #high score
+  def high_score
+    $redis.zscore("highscores", self.id).to_i
+  end
+
+  #load top 3 users
+  def self.top_3
+    $redis.zrevrange("highscores", 0, 2).map { |id| User.find(id)}
   end
 end
